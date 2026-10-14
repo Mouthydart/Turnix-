@@ -1,25 +1,38 @@
-# Tipos personalizados para Pydantic y MongoDB
+"""Tipos personalizados de Pydantic compartidos por los modelos de Turnix."""
+
+from typing import Annotated, Any
 
 from bson import ObjectId
-from pydantic import GetCoreSchemaHandler
-from pydantic_core import core_schema
+from pydantic import BeforeValidator, PlainSerializer
 
 
-def validate_object_id(value: object) -> ObjectId:
+def validate_object_id(value: Any) -> ObjectId:
+    """Normaliza un valor a `bson.ObjectId`.
+
+    Acepta tanto un `ObjectId` ya construido (por ejemplo, al leer de MongoDB)
+    como su representación en string (por ejemplo, al recibir JSON de la API).
+
+    Args:
+        value: Valor recibido, en principio `ObjectId` o `str`.
+
+    Returns:
+        El `ObjectId` correspondiente.
+
+    Raises:
+        ValueError: Si el valor no es un `ObjectId` ni un string válido.
+    """
     if isinstance(value, ObjectId):
         return value
     if isinstance(value, str) and ObjectId.is_valid(value):
         return ObjectId(value)
-    raise ValueError("Invalid ObjectId")
+    raise ValueError("ObjectId inválido")
 
 
-def serialize_object_id(value: object, _handler: GetCoreSchemaHandler | None = None) -> str:
-    return str(value)
-
-
-PydanticObjectId = core_schema.no_info_plain_validator_function(
-    validate_object_id,
-    serialization=core_schema.plain_serializer_function_ser_schema(
-        serialize_object_id, return_schema=core_schema.str_schema(), when_used="json"
-    ),
-)
+# Tipo reutilizable para referencias a documentos de MongoDB.
+# - `BeforeValidator`: convierte el valor entrante (str u ObjectId) a ObjectId.
+# - `PlainSerializer`: al serializar a JSON lo expone como string legible.
+PyObjectId = Annotated[
+    ObjectId,
+    BeforeValidator(validate_object_id),
+    PlainSerializer(str, return_type=str, when_used="json"),
+]
