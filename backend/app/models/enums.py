@@ -4,7 +4,23 @@ Se usan `StrEnum`: los valores son strings, por lo que se guardan en MongoDB
 tal cual y se serializan a JSON sin conversiones adicionales.
 """
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
+
+
+class Weekday(IntEnum):
+    """Días de la semana.
+
+    Los valores siguen la convención de `datetime.date.weekday()`
+    (0 = lunes ... 6 = domingo), lo que simplifica cálculos de disponibilidad.
+    """
+
+    MONDAY = 0
+    TUESDAY = 1
+    WEDNESDAY = 2
+    THURSDAY = 3
+    FRIDAY = 4
+    SATURDAY = 5
+    SUNDAY = 6
 
 
 class PlanName(StrEnum):
