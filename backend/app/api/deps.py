@@ -48,3 +48,20 @@ async def get_current_active_user(
             detail="El usuario está inactivo",
         )
     return user
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> User | None:
+    """Devuelve el usuario autenticado o `None` si no hay token válido.
+
+    Útil en endpoints públicos que se enriquecen cuando hay sesión (por
+    ejemplo, anotarse a la lista de espera: registrado o invitado).
+    """
+    if credentials is None:
+        return None
+    try:
+        payload = decode_token(credentials.credentials, expected_type="access")
+    except JWTError:
+        return None
+    return await user_repository.get_by_id(payload.get("sub", ""))
