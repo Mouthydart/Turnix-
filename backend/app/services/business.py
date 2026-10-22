@@ -45,7 +45,7 @@ async def _unique_slug(base: str) -> str:
     return slug
 
 
-async def _get_managed_business(business_id: object, user: User) -> Business:
+async def get_managed_business(business_id: object, user: User) -> Business:
     """Carga un negocio y verifica que el usuario pueda gestionarlo."""
     try:
         object_id = validate_object_id(business_id)
@@ -103,12 +103,12 @@ async def list_businesses(user: User) -> list[Business]:
 
 async def get_business(business_id: object, user: User) -> Business:
     """Devuelve un negocio gestionable por el usuario."""
-    return await _get_managed_business(business_id, user)
+    return await get_managed_business(business_id, user)
 
 
 async def update_business(business_id: object, user: User, payload: BusinessUpdate) -> Business:
     """Actualiza parcialmente un negocio gestionable por el usuario."""
-    business = await _get_managed_business(business_id, user)
+    business = await get_managed_business(business_id, user)
 
     changes = payload.model_dump(exclude_unset=True)
     new_slug = changes.get("slug")
@@ -138,5 +138,5 @@ async def delete_business(business_id: object, user: User) -> None:
     Nota: por ahora no elimina en cascada los empleados, servicios ni reservas
     asociados; se abordará cuando existan esas entidades.
     """
-    business = await _get_managed_business(business_id, user)
+    business = await get_managed_business(business_id, user)
     await business_repository.delete(business.id)
