@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.deps import get_current_active_user
 from app.models import User
 from app.schemas.blocked_period import BlockedPeriodPublic
-from app.schemas.booking import BookingPublic
+from app.schemas.booking import BookingPublic, StaffBookingStatusUpdate
 from app.schemas.staff import StaffPublic
 from app.services import staff_agenda as agenda_service
 
@@ -46,6 +46,20 @@ async def get_my_booking(
     user: User = Depends(get_current_active_user),
 ) -> BookingPublic:
     booking = await agenda_service.get_my_booking(user, booking_id)
+    return BookingPublic.model_validate(booking)
+
+
+@router.patch(
+    "/me/agenda/{booking_id}",
+    response_model=BookingPublic,
+    summary="Marcar una cita como completada o no-show",
+)
+async def update_my_booking_status(
+    booking_id: str,
+    payload: StaffBookingStatusUpdate,
+    user: User = Depends(get_current_active_user),
+) -> BookingPublic:
+    booking = await agenda_service.update_my_booking_status(user, booking_id, payload)
     return BookingPublic.model_validate(booking)
 
 
