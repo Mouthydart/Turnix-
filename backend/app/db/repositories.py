@@ -11,6 +11,7 @@ from app.models import (
     Booking,
     Business,
     RefreshToken,
+    Review,
     Service,
     Staff,
     User,
@@ -58,6 +59,11 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
     model = RefreshToken
 
 
+class ReviewRepository(BaseRepository[Review]):
+    collection_name = "reviews"
+    model = Review
+
+
 user_repository = UserRepository()
 business_repository = BusinessRepository()
 staff_repository = StaffRepository()
@@ -66,3 +72,4 @@ booking_repository = BookingRepository()
 blocked_period_repository = BlockedPeriodRepository()
 waitlist_repository = WaitlistRepository()
 refresh_token_repository = RefreshTokenRepository()
+review_repository = ReviewRepository()
