@@ -93,3 +93,38 @@ async def test_login_and_refresh_schemas_roundtrip():
     payload = RegisterRequest(full_name="X", email="x@turnix.app", password="12345678")
     assert payload.role == "customer"
     assert LoginRequest(email="x@turnix.app", password="12345678").email == "x@turnix.app"
+
+
+async def test_insert_omits_null_optional_fields():
+    """Los campos opcionales nulos no se guardan como `null` en Mongo."""
+    from app.db.repositories import user_repository
+
+    user = await make_user(email="sin-doc@turnix.app")
+
+    raw = await user_repository.collection.find_one({"email": "sin-doc@turnix.app"})
+    assert raw is not None
+    assert raw["_id"] == user.id
+    assert "document_id" not in raw
+    assert "phone" not in raw
+    assert "business_id" not in raw
+
+
+async def test_insert_omits_null_email():
+    """Un usuario sin email tampoco ocupa el índice único de email."""
+    from app.db.repositories import user_repository
+    from app.models import User
+
+    user = await user_repository.insert(User(full_name="Invitado"))
+
+    raw = await user_repository.collection.find_one({"_id": user.id})
+    assert raw is not None
+    assert "email" not in raw
+    assert "document_id" not in raw
+
+
+async def test_register_multiple_users_without_document_id():
+    """Dos usuarios sin documento pueden coexistir."""
+    first = await make_user(email="uno@turnix.app")
+    second = await make_user(email="dos@turnix.app")
+
+    assert first.id != second.id

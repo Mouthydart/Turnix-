@@ -9,10 +9,11 @@ from typing import NamedTuple
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.models import BookingStatus
 from app.schemas.blocked_period import BlockedPeriodCreate
-from app.schemas.booking import BookingStatusUpdate
+from app.schemas.booking import BookingStatusUpdate, StaffBookingStatusUpdate
 from app.services import blocked_period as block_service
 from app.services import booking as booking_service
 from app.services import staff_agenda as agenda_service
@@ -192,3 +193,97 @@ async def test_agenda_http_endpoints_require_auth_and_work(client):
     )
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     assert (await client.get("/api/v1/staff/me", headers=headers)).status_code == 403
+
+
+async def test_staff_marks_own_booking_completed():
+    s = await _staff_setup()
+    customer = await make_user(email="cli@turnix.app")
+    day = next_open_day(0)
+    booking = await make_booking(customer, s.business, s.service, s.staff, at(day, 10, 0))
+
+    updated = await agenda_service.update_my_booking_status(
+        s.staff_user,
+        str(booking.id),
+        StaffBookingStatusUpdate(status=BookingStatus.COMPLETED),
+    )
+    assert updated.status == BookingStatus.COMPLETED
+
+
+async def test_staff_marks_own_booking_no_show():
+    s = await _staff_setup()
+    customer = await make_user(email="cli@turnix.app")
+    day = next_open_day(0)
+    booking = await make_booking(customer, s.business, s.service, s.staff, at(day, 10, 0))
+
+    updated = await agenda_service.update_my_booking_status(
+        s.staff_user,
+        str(booking.id),
+        StaffBookingStatusUpdate(status=BookingStatus.NO_SHOW),
+    )
+    assert updated.status == BookingStatus.NO_SHOW
+
+
+async def test_staff_cannot_mark_other_staff_booking():
+    s = await _staff_setup()
+    other_staff = await make_staff(
+        s.owner, s.business, display_name="Otro", services=[str(s.service.id)]
+    )
+    customer = await make_user(email="cli@turnix.app")
+    day = next_open_day(0)
+    theirs = await make_booking(customer, s.business, s.service, other_staff, at(day, 10, 0))
+
+    with pytest.raises(HTTPException) as exc:
+        await agenda_service.update_my_booking_status(
+            s.staff_user,
+            str(theirs.id),
+            StaffBookingStatusUpdate(status=BookingStatus.COMPLETED),
+        )
+    assert exc.value.status_code == 404
+
+
+async def test_cannot_re_mark_closed_booking():
+    s = await _staff_setup()
+    customer = await make_user(email="cli@turnix.app")
+    day = next_open_day(0)
+    booking = await make_booking(customer, s.business, s.service, s.staff, at(day, 10, 0))
+    await agenda_service.update_my_booking_status(
+        s.staff_user,
+        str(booking.id),
+        StaffBookingStatusUpdate(status=BookingStatus.COMPLETED),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await agenda_service.update_my_booking_status(
+            s.staff_user,
+            str(booking.id),
+            StaffBookingStatusUpdate(status=BookingStatus.NO_SHOW),
+        )
+    assert exc.value.status_code == 409
+
+
+def test_staff_status_update_only_allows_completed_or_no_show():
+    StaffBookingStatusUpdate(status=BookingStatus.COMPLETED)
+    StaffBookingStatusUpdate(status=BookingStatus.NO_SHOW)
+
+    for invalid in (BookingStatus.CANCELLED, BookingStatus.PENDING, BookingStatus.CONFIRMED):
+        with pytest.raises(ValidationError):
+            StaffBookingStatusUpdate(status=invalid)
+
+
+async def test_staff_status_endpoint_rejects_invalid_status_and_requires_auth(client):
+    s = await _staff_setup()
+    customer = await make_user(email="cli@turnix.app")
+    day = next_open_day(0)
+    booking = await make_booking(customer, s.business, s.service, s.staff, at(day, 10, 0))
+
+    # El esquema rechaza cualquier estado distinto de completed/no_show.
+    with pytest.raises(ValidationError):
+        StaffBookingStatusUpdate(status="cancelled")
+
+    # El endpoint existe y exige autenticación.
+    assert (
+        await client.patch(
+            f"/api/v1/staff/me/agenda/{booking.id}", json={"status": "completed"}
+        )
+    ).status_code == 401
+
