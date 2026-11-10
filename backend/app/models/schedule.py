@@ -6,13 +6,14 @@ from pydantic import Field, model_validator
 
 from app.models.base import AppBaseModel
 from app.models.enums import Weekday
+from app.models.types import BsonTime
 
 
 class TimeRange(AppBaseModel):
     """Franja horaria dentro de un día (por ejemplo, 09:00 a 13:00)."""
 
-    open: time
-    close: time
+    open: BsonTime
+    close: BsonTime
 
     @model_validator(mode="after")
     def _validate_order(self) -> "TimeRange":
