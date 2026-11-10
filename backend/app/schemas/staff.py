@@ -50,5 +50,7 @@ class StaffPublic(AppBaseModel):
     services: list[PyObjectId] = Field(default_factory=list)
     schedule: WeeklySchedule | None = None
     is_active: bool
+    rating_avg: float = 0.0
+    rating_count: int = 0
     created_at: datetime
     updated_at: datetime
