@@ -5,7 +5,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.models.base import TimestampedDocument
-from app.models.types import PyObjectId
+from app.models.types import BsonDecimal, PyObjectId
 
 
 class Service(TimestampedDocument):
@@ -21,5 +21,5 @@ class Service(TimestampedDocument):
     description: str | None = None
     duration_minutes: int = Field(gt=0)
     buffer_minutes: int = Field(default=0, ge=0)
-    price: Decimal = Field(default=Decimal(0), ge=0)
+    price: BsonDecimal = Field(default=Decimal(0), ge=0)
     is_active: bool = True
