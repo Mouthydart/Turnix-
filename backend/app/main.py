@@ -4,9 +4,10 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo.errors import PyMongoError
+from fastapi.responses import JSONResponse
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -43,6 +44,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(DuplicateKeyError)
+async def duplicate_key_exception_handler(
+    request: Request, exc: DuplicateKeyError
+) -> JSONResponse:
+    logger.warning("Clave duplicada en %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "Ya existe un registro con esos datos"},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Error no controlado en %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Error interno del servidor"},
+    )
+
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
