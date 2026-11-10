@@ -1,5 +1,7 @@
 # Seguridad utilizando JWT y hashing de contraseñas
 
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -21,6 +23,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def hash_token(token: str) -> str:
+    """Devuelve el hash SHA-256 de un token.
+
+    Se guarda el hash (no el token) en la base de datos para que un acceso
+    no autorizado a esta no permita reutilizar los tokens de refresco.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def create_token(
     subject: str, token_type: TokenType, expires_delta: timedelta, **claims: Any
 ) -> str:
@@ -28,6 +39,10 @@ def create_token(
     payload: dict[str, Any] = {
         "sub": subject,
         "type": token_type,
+        # `jti` (JWT ID) único: garantiza que dos tokens emitidos para el mismo
+        # usuario en el mismo segundo no sean idénticos. Sin él, la rotación de
+        # tokens de refresco podría reemitir exactamente el mismo token.
+        "jti": secrets.token_urlsafe(16),
         "iat": now,
         "exp": now + expires_delta,
         **claims,
