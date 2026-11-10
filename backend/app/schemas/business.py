@@ -56,5 +56,7 @@ class BusinessPublic(AppBaseModel):
     description: str | None = None
     is_active: bool
     schedule: WeeklySchedule
+    rating_avg: float = 0.0
+    rating_count: int = 0
     created_at: datetime
     updated_at: datetime
