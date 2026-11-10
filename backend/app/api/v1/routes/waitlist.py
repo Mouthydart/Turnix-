@@ -77,6 +77,34 @@ async def update_waitlist_status(
     return WaitlistPublic.model_validate(entry)
 
 
+@router.post(
+    "/{business_id}/waitlist/{entry_id}/offer",
+    response_model=WaitlistPublic,
+    summary="Ofrecer un hueco manualmente",
+)
+async def offer_waitlist_entry(
+    business_id: str,
+    entry_id: str,
+    user: User = Depends(get_current_active_user),
+) -> WaitlistPublic:
+    entry = await waitlist_service.offer_waitlist_entry(user, business_id, entry_id)
+    return WaitlistPublic.model_validate(entry)
+
+
+@router.post(
+    "/{business_id}/waitlist/{entry_id}/cancel",
+    response_model=WaitlistPublic,
+    summary="Cancelar una entrada desde el negocio",
+)
+async def cancel_waitlist_entry(
+    business_id: str,
+    entry_id: str,
+    user: User = Depends(get_current_active_user),
+) -> WaitlistPublic:
+    entry = await waitlist_service.cancel_waitlist_entry(user, business_id, entry_id)
+    return WaitlistPublic.model_validate(entry)
+
+
 @router.delete(
     "/{business_id}/waitlist/{entry_id}",
     status_code=status.HTTP_204_NO_CONTENT,
