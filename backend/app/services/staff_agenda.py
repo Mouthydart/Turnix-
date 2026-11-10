@@ -22,9 +22,17 @@ from app.db.repositories import (
 )
 from app.models import BlockedPeriod, Booking, BookingStatus, Business, Staff, User
 from app.models.types import validate_object_id
+from app.schemas.booking import StaffBookingStatusUpdate
 
 # Días por defecto que abarca la agenda si no se indica rango.
 DEFAULT_AGENDA_DAYS = 30
+
+# Estados terminales: una vez alcanzados, la cita ya no se modifica.
+TERMINAL_STATUSES = {
+    BookingStatus.CANCELLED,
+    BookingStatus.COMPLETED,
+    BookingStatus.NO_SHOW,
+}
 
 
 async def resolve_staff_for_user(user: User) -> Staff:
@@ -115,6 +123,30 @@ async def get_my_booking(user: User, booking_id: str) -> Booking:
             status_code=status.HTTP_404_NOT_FOUND, detail="Reserva no encontrada"
         )
     return booking
+
+
+async def update_my_booking_status(
+    user: User, booking_id: str, payload: StaffBookingStatusUpdate
+) -> Booking:
+    """Marca una cita de la propia agenda como `completed` o `no_show`.
+
+    Solo aplica a citas aún abiertas: si ya está cancelada, completada o
+    marcada como no-show, responde 409 (no se revierten estados).
+    """
+    booking = await get_my_booking(user, booking_id)
+
+    if booking.status in TERMINAL_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La cita ya está cerrada y no puede modificarse",
+        )
+
+    updated = await booking_repository.update(booking.id, {"status": payload.status})
+    if updated is None:  # pragma: no cover - la reserva existe, no debería ocurrir
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Reserva no encontrada"
+        )
+    return updated
 
 
 async def list_my_blocked_periods(
