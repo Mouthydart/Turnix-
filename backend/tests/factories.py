@@ -11,8 +11,8 @@ from zoneinfo import ZoneInfo
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.db.repositories import user_repository
-from app.models import Booking, Business, Service, Staff, User, Waitlist
+from app.db.repositories import business_repository, user_repository
+from app.models import Booking, Business, PlanName, Service, Staff, User, Waitlist
 from app.schemas import RegisterRequest
 from app.schemas.booking import BookingCreate
 from app.schemas.business import BusinessCreate
@@ -84,9 +84,43 @@ async def make_admin(email: str = "admin@turnix.app", **kwargs) -> User:
     return await user_repository.insert(user)
 
 
-async def make_business(owner: User, name: str = "Barbería Turnix", **kwargs) -> Business:
-    """Crea un negocio propiedad de `owner`."""
-    return await business_service.create_business(owner, BusinessCreate(name=name, **kwargs))
+async def make_staff_user(email: str = "staff@turnix.app", **kwargs) -> User:
+    """Crea un usuario con rol `staff` (se inserta directo, igual que admin)."""
+    user = User(
+        full_name=kwargs.get("full_name", "Empleado Usuario"),
+        email=email,
+        phone=kwargs.get("phone"),
+        role="staff",
+        hashed_password=hash_password(kwargs.get("password", DEFAULT_PASSWORD)),
+    )
+    return await user_repository.insert(user)
+
+
+async def make_business(
+    owner: User,
+    name: str = "Barbería Turnix",
+    *,
+    plan: PlanName | str | None = None,
+    **kwargs,
+) -> Business:
+    """Crea un negocio propiedad de `owner`.
+
+    Si se indica `plan`, el negocio se crea en freemium (comportamiento real de
+    la API) y después se cambia el plan directamente, simulando un upgrade.
+    """
+    business = await business_service.create_business(owner, BusinessCreate(name=name, **kwargs))
+    if plan is not None:
+        business = await upgrade_plan(business, plan)
+    return business
+
+
+async def upgrade_plan(business: Business, plan: PlanName | str) -> Business:
+    """Cambia el plan de un negocio (equivale a un upgrade desde pagos)."""
+    updated = await business_repository.update(
+        business.id, {"plan": PlanName(plan) if isinstance(plan, str) else plan}
+    )
+    assert updated is not None
+    return updated
 
 
 async def make_service(
