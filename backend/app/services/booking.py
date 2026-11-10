@@ -6,12 +6,13 @@ solapa con reservas ni bloqueos. Los clientes reservan para sí mismos; los
 propietarios gestionan todas las reservas de su negocio.
 """
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from pymongo import ASCENDING, DESCENDING
 
+from app.core.plans import assert_within_limit, limits_for
 from app.db.repositories import (
     booking_repository,
     business_repository,
@@ -33,6 +34,7 @@ from app.services.availability import (
     schedule_for_date,
 )
 from app.services.business import get_managed_business
+from app.services.waitlist import offer_freed_slot
 
 
 def _not_found(detail: str) -> HTTPException:
@@ -40,7 +42,7 @@ def _not_found(detail: str) -> HTTPException:
 
 
 def _unprocessable(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail)
 
 
 def _conflict(detail: str) -> HTTPException:
@@ -154,9 +156,31 @@ async def get_availability(
     )
 
 
+async def _count_bookings_this_month(business_id: object) -> int:
+    """Cuenta las reservas del negocio con inicio dentro del mes actual (UTC)."""
+    now = datetime.now(UTC)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_month = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month = month_start.replace(month=month_start.month + 1)
+    return await booking_repository.count(
+        {"business_id": business_id, "start_at": {"$gte": month_start, "$lt": next_month}}
+    )
+
+
 async def create_booking(user: User, business_id: str, payload: BookingCreate) -> Booking:
     """Crea una reserva para el usuario autenticado."""
     business = await _get_active_business(business_id)
+
+    current = await _count_bookings_this_month(business.id)
+    assert_within_limit(
+        current,
+        limits_for(business.plan).max_bookings_per_month,
+        "reservas al mes",
+        business.plan,
+    )
+
     service = await _get_active_service(business.id, payload.service_id)
     staff = await _get_active_staff(business.id, payload.staff_id)
 
@@ -185,11 +209,53 @@ async def create_booking(user: User, business_id: str, payload: BookingCreate) -
     return await booking_repository.insert(booking)
 
 
-async def list_business_bookings(user: User, business_id: str) -> list[Booking]:
-    """Lista todas las reservas de un negocio gestionable por el usuario."""
+async def list_business_bookings(
+    user: User,
+    business_id: str,
+    *,
+    status: BookingStatus | None = None,
+    staff_id: str | None = None,
+    service_id: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    skip: int = 0,
+    limit: int = 0,
+) -> list[Booking]:
+    """Lista las reservas de un negocio gestionable con filtros y paginación.
+
+    Los filtros por fechas se interpretan en la zona horaria del negocio.
+    """
     business = await get_managed_business(business_id, user)
+    tz = ZoneInfo(business.timezone)
+
+    query: dict[str, object] = {"business_id": business.id}
+
+    if status is not None:
+        query["status"] = status
+    if staff_id is not None:
+        try:
+            query["staff_id"] = validate_object_id(staff_id)
+        except ValueError as exc:
+            raise _not_found("Empleado no encontrado") from exc
+    if service_id is not None:
+        try:
+            query["service_id"] = validate_object_id(service_id)
+        except ValueError as exc:
+            raise _not_found("Servicio no encontrado") from exc
+    if date_from is not None or date_to is not None:
+        date_range: dict[str, object] = {}
+        if date_from is not None:
+            start = datetime.combine(date_from, time(0, 0), tzinfo=tz).astimezone(UTC)
+            date_range["$gte"] = start
+        if date_to is not None:
+            end = datetime.combine(date_to + timedelta(days=1), time(0, 0), tzinfo=tz).astimezone(UTC)
+            date_range["$lt"] = end
+        query["start_at"] = date_range
+        if date_from is not None and date_to is not None and date_to < date_from:
+            raise _unprocessable("`date_to` no puede ser anterior a `date_from`")
+
     return await booking_repository.find_many(
-        {"business_id": business.id}, sort=[("start_at", ASCENDING)]
+        query, sort=[("start_at", ASCENDING)], skip=skip, limit=limit
     )
 
 
@@ -260,6 +326,10 @@ async def update_booking_status(
     updated = await booking_repository.update(booking.id, changes)
     if updated is None:  # pragma: no cover - la reserva existe, no debería ocurrir
         raise _not_found("Reserva no encontrada")
+
+    if payload.status == BookingStatus.CANCELLED:
+        await offer_freed_slot(business.id, booking)
+
     return updated
 
 
