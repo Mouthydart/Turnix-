@@ -7,6 +7,7 @@ negocio. Si se vincula una cuenta de usuario (`user_id`), comprueba que exista.
 
 from fastapi import HTTPException, status
 
+from app.core.plans import assert_within_limit, limits_for
 from app.db.repositories import service_repository, staff_repository, user_repository
 from app.models import Staff, User
 from app.models.types import validate_object_id
@@ -51,7 +52,7 @@ async def _validated_services(business_id: object, service_ids: list) -> list:
     )
     if len(found) != len(unique_ids):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Uno o más servicios no pertenecen a este negocio",
         )
     return unique_ids
@@ -61,7 +62,7 @@ async def _validated_user(user_id: object) -> None:
     """Comprueba que la cuenta de usuario vinculada exista."""
     if await user_repository.get_by_id(user_id) is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="El usuario indicado no existe",
         )
 
@@ -69,6 +70,12 @@ async def _validated_user(user_id: object) -> None:
 async def create_staff(user: User, business_id: str, payload: StaffCreate) -> Staff:
     """Crea un empleado en un negocio gestionable por el usuario."""
     business = await get_managed_business(business_id, user)
+
+    current = await staff_repository.count({"business_id": business.id})
+    assert_within_limit(
+        current, limits_for(business.plan).max_employees, "empleados", business.plan
+    )
+
     services = await _validated_services(business.id, payload.services)
     if payload.user_id is not None:
         await _validated_user(payload.user_id)
