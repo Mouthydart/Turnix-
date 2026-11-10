@@ -14,6 +14,9 @@ def get_client() -> AsyncMongoClient:
             settings.MONGO_URI,
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=5000,
+            # Devuelve los `datetime` con zona horaria (UTC), coherente con el
+            # tipo `AwareDatetime` que usan los modelos al leer de MongoDB.
+            tz_aware=True,
         )
     return _client
 
