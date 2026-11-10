@@ -1,13 +1,29 @@
 ## Índices de la base de datos (Collection Indexes)
 
+import logging
+from typing import Any
+
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 
-COLLECTIONS: dict[str, list[tuple[tuple[str, int], dict[str, int]]]] = {
+logger = logging.getLogger(__name__)
+
+COLLECTIONS: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
     "users": [
-        ([("email", ASCENDING)], {"unique": True, "sparse": True, "name": "uniq_email"}),
+        (
+            [("email", ASCENDING)],
+            {
+                "unique": True,
+                "name": "uniq_email",
+                "partialFilterExpression": {"email": {"$type": "string"}},
+            },
+        ),
         (
             [("document_id", ASCENDING)],
-            {"unique": True, "sparse": True, "name": "uniq_document_id"},
+            {
+                "unique": True,
+                "name": "uniq_document_id",
+                "partialFilterExpression": {"document_id": {"$type": "string"}},
+            },
         ),
     ],
     "businesses": [
@@ -35,11 +51,37 @@ COLLECTIONS: dict[str, list[tuple[tuple[str, int], dict[str, int]]]] = {
     "refresh_tokens": [
         ([("user_id", ASCENDING)], {"name": "idx_user"}),
     ],
+    "reviews": [
+        ([("booking_id", ASCENDING)], {"unique": True, "name": "uniq_booking"}),
+        ([("business_id", ASCENDING), ("created_at", DESCENDING)], {"name": "idx_business_created"}),
+    ],
 }
+
+
+def _index_matches(
+    current: dict[str, Any],
+    keys: list[tuple[str, int]],
+    options: dict[str, Any],
+) -> bool:
+    """Indica si un índice existente ya cumple la definición deseada."""
+    if [tuple(key) for key in current.get("key", [])] != [tuple(key) for key in keys]:
+        return False
+    for option in ("unique", "sparse"):
+        if bool(current.get(option, False)) != bool(options.get(option, False)):
+            return False
+    return current.get("partialFilterExpression") == options.get("partialFilterExpression")
 
 
 async def create_indexes(client: AsyncMongoClient, db_name: str) -> None:
     db = client[db_name]
     for collection_name, indexes in COLLECTIONS.items():
+        collection = db[collection_name]
+        existing = await collection.index_information()
         for keys, options in indexes:
-            await db[collection_name].create_index(keys, **options)
+            name = options.get("name")
+            if name and name in existing and not _index_matches(existing[name], keys, options):
+                # Migra índices antiguos (p. ej. sparse) a su definición actual.
+                logger.info("Recreando índice %s.%s", collection_name, name)
+                await collection.drop_index(name)
+                existing.pop(name, None)
+            await collection.create_index(keys, **options)
