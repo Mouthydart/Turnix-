@@ -7,7 +7,7 @@ from pydantic import AwareDatetime, Field, model_validator
 from app.core.config import settings
 from app.models.base import TimestampedDocument
 from app.models.enums import BookingStatus
-from app.models.types import PyObjectId
+from app.models.types import BsonDecimal, PyObjectId
 
 
 class Booking(TimestampedDocument):
@@ -28,7 +28,7 @@ class Booking(TimestampedDocument):
     start_at: AwareDatetime
     end_at: AwareDatetime
     status: BookingStatus = BookingStatus.PENDING
-    price: Decimal = Field(default=Decimal(0), ge=0)
+    price: BsonDecimal = Field(default=Decimal(0), ge=0)
     currency: str = settings.DEFAULT_CURRENCY
     customer_name: str | None = None
     customer_phone: str | None = None
