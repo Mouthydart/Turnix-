@@ -19,7 +19,7 @@ def _assert_range(starts_at, ends_at) -> None:
     """Verifica que el fin del bloqueo sea posterior a su inicio."""
     if ends_at <= starts_at:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="`ends_at` debe ser posterior a `starts_at`",
         )
 
@@ -32,12 +32,12 @@ async def _validate_staff(business_id: object, staff_id: object) -> None:
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="El empleado indicado no es válido",
         ) from exc
     if staff is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="El empleado indicado no pertenece a este negocio",
         )
 
