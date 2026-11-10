@@ -10,14 +10,16 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_current_active_user
-from app.models import User
+from app.models import BookingStatus, User
 from app.schemas.booking import (
     AvailabilityResponse,
     BookingCreate,
     BookingPublic,
     BookingStatusUpdate,
 )
+from app.schemas.review import ReviewCreate, ReviewPublic
 from app.services import booking as booking_service
+from app.services import review as review_service
 
 router = APIRouter()
 me_router = APIRouter()
@@ -59,9 +61,26 @@ async def create_booking(
 )
 async def list_business_bookings(
     business_id: str,
+    status: BookingStatus | None = Query(default=None),
+    staff_id: str | None = Query(default=None),
+    service_id: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=0, ge=0),
     user: User = Depends(get_current_active_user),
 ) -> list[BookingPublic]:
-    bookings = await booking_service.list_business_bookings(user, business_id)
+    bookings = await booking_service.list_business_bookings(
+        user,
+        business_id,
+        status=status,
+        staff_id=staff_id,
+        service_id=service_id,
+        date_from=date_from,
+        date_to=date_to,
+        skip=skip,
+        limit=limit,
+    )
     return [BookingPublic.model_validate(booking) for booking in bookings]
 
 
@@ -113,3 +132,18 @@ async def list_my_bookings(
 ) -> list[BookingPublic]:
     bookings = await booking_service.list_my_bookings(user)
     return [BookingPublic.model_validate(booking) for booking in bookings]
+
+
+@me_router.post(
+    "/{booking_id}/review",
+    response_model=ReviewPublic,
+    status_code=status.HTTP_201_CREATED,
+    summary="Reseñar una cita completada",
+)
+async def create_review(
+    booking_id: str,
+    payload: ReviewCreate,
+    user: User = Depends(get_current_active_user),
+) -> ReviewPublic:
+    review = await review_service.create_review(user, booking_id, payload)
+    return ReviewPublic.model_validate(review)
