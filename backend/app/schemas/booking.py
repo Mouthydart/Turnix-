@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import AwareDatetime, Field
 
@@ -26,6 +27,16 @@ class BookingStatusUpdate(AppBaseModel):
 
     status: BookingStatus
     cancellation_reason: str | None = Field(default=None, max_length=500)
+
+
+class StaffBookingStatusUpdate(AppBaseModel):
+    """Estado que un empleado puede asignar a una cita de su propia agenda.
+
+    Restringido a la resolución del servicio: `completed` (asistió) o
+    `no_show` (no asistió). Un empleado nunca cancela ni revierte estados.
+    """
+
+    status: Literal[BookingStatus.COMPLETED, BookingStatus.NO_SHOW]
 
 
 class BookingPublic(AppBaseModel):
