@@ -35,10 +35,7 @@ class BaseRepository[ModelT: MongoDocument]:
 
     async def insert(self, document: ModelT) -> ModelT:
         """Inserta un documento y devuelve el modelo con su `id` asignado."""
-        data = document.model_dump(by_alias=True)
-        if data.get("_id") is None:
-            # Sin `_id` dejamos que MongoDB genere el ObjectId.
-            data.pop("_id", None)
+        data = document.model_dump(by_alias=True, exclude_none=True)
         result = await self.collection.insert_one(data)
         return self.model.model_validate({**data, "_id": result.inserted_id})
 
@@ -88,6 +85,11 @@ class BaseRepository[ModelT: MongoDocument]:
     async def count(self, filters: Mapping[str, Any] | None = None) -> int:
         """Cuenta los documentos que cumplan los filtros."""
         return await self.collection.count_documents(dict(filters) if filters else {})
+
+    async def aggregate(self, pipeline: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        """Ejecuta una tubería de agregación y devuelve los documentos crudos."""
+        cursor = self.collection.aggregate(list(pipeline))
+        return [document async for document in cursor]
 
     async def exists(self, filters: Mapping[str, Any]) -> bool:
         """Indica si existe al menos un documento que cumpla los filtros."""
