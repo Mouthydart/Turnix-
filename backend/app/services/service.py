@@ -7,6 +7,7 @@ el servicio pertenezca a ese negocio.
 
 from fastapi import HTTPException, status
 
+from app.core.plans import assert_within_limit, limits_for
 from app.db.repositories import service_repository
 from app.models import Service, User
 from app.models.types import validate_object_id
@@ -37,6 +38,10 @@ async def _get_service_in_business(service_id: object, business_id: object) -> S
 async def create_service(user: User, business_id: str, payload: ServiceCreate) -> Service:
     """Crea un servicio en un negocio gestionable por el usuario."""
     business = await get_managed_business(business_id, user)
+
+    current = await service_repository.count({"business_id": business.id})
+    assert_within_limit(current, limits_for(business.plan).max_services, "servicios", business.plan)
+
     service = Service(
         business_id=business.id,
         name=payload.name,
