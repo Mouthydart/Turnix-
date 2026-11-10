@@ -27,3 +27,6 @@ class Business(TimestampedDocument):
     description: str | None = None
     is_active: bool = True
     schedule: WeeklySchedule = Field(default_factory=WeeklySchedule.default)
+    # Agregados de valoraciones, recalculados al crear cada reseña.
+    rating_avg: float = Field(default=0.0, ge=0, le=5)
+    rating_count: int = Field(default=0, ge=0)
