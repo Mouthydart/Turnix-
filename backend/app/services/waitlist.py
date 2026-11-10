@@ -9,6 +9,7 @@ disponibilidad.
 from fastapi import HTTPException, status
 from pymongo import ASCENDING
 
+from app.core.plans import assert_feature_enabled, limits_for
 from app.db.repositories import (
     business_repository,
     service_repository,
@@ -34,7 +35,7 @@ def _not_found(detail: str) -> HTTPException:
 
 
 def _unprocessable(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail)
 
 
 async def _get_active_business(business_id: str) -> Business:
@@ -91,6 +92,10 @@ async def join_waitlist(
     nombre/teléfono) y para invitados (deben aportar `customer_name`).
     """
     business = await _get_active_business(business_id)
+
+    assert_feature_enabled(
+        limits_for(business.plan).waitlist_enabled, "lista de espera", business.plan
+    )
 
     if payload.service_id is not None:
         await _validate_service(business.id, payload.service_id)
@@ -192,6 +197,43 @@ async def delete_waitlist_entry(user: User, business_id: str, entry_id: str) -> 
     business = await get_managed_business(business_id, user)
     entry = await _get_entry_in_business(entry_id, business.id)
     await waitlist_repository.delete(entry.id)
+
+
+async def cancel_waitlist_entry(user: User, business_id: str, entry_id: str) -> Waitlist:
+    """Cancela una entrada de la lista de espera (solo gestores del negocio)."""
+    business = await get_managed_business(business_id, user)
+    entry = await _get_entry_in_business(entry_id, business.id)
+
+    if entry.status == WaitlistStatus.CANCELLED:
+        return entry
+
+    updated = await waitlist_repository.update(entry.id, {"status": WaitlistStatus.CANCELLED})
+    if updated is None:  # pragma: no cover - la entrada existe, no debería ocurrir
+        raise _not_found("Entrada no encontrada")
+    return updated
+
+
+async def offer_waitlist_entry(user: User, business_id: str, entry_id: str) -> Waitlist:
+    """Ofrece un hueco manualmente a una entrada en espera (solo gestores).
+
+    Pasa la entrada de `waiting` a `offered`. Si ya está `offered` se devuelve
+    tal cual; si está en un estado terminal se rechaza con 409.
+    """
+    business = await get_managed_business(business_id, user)
+    entry = await _get_entry_in_business(entry_id, business.id)
+
+    if entry.status == WaitlistStatus.OFFERED:
+        return entry
+    if entry.status in (WaitlistStatus.BOOKED, WaitlistStatus.EXPIRED, WaitlistStatus.CANCELLED):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Solo se pueden ofrecer entradas en espera",
+        )
+
+    updated = await waitlist_repository.update(entry.id, {"status": WaitlistStatus.OFFERED})
+    if updated is None:  # pragma: no cover - la entrada existe, no debería ocurrir
+        raise _not_found("Entrada no encontrada")
+    return updated
 
 
 def _matches_freed_slot(entry: Waitlist, booking: Booking) -> bool:
