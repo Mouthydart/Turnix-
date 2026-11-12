@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   CalendarDays,
   LayoutDashboard,
   LogOut,
@@ -24,6 +25,7 @@ import { NoBusinessScreen } from "./no-business-screen";
 const OWNER_NAV_ITEMS = [
   { to: "/app", label: "Resumen", icon: LayoutDashboard, end: true },
   { to: "/app/bookings", label: "Reservas", icon: CalendarDays },
+  { to: "/app/reports", label: "Reportes", icon: BarChart3 },
   { to: "/app/services", label: "Servicios", icon: Scissors },
   { to: "/app/staff", label: "Empleados", icon: Users },
   { to: "/app/settings", label: "Ajustes", icon: Settings },

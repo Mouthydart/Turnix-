@@ -15,6 +15,7 @@ import { LoginPage } from "@/pages/login-page";
 import { NewBusinessPage } from "@/pages/new-business-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { RegisterPage } from "@/pages/register-page";
+import { ReportsPage } from "@/pages/reports-page";
 import { ServicesPage } from "@/pages/services-page";
 import { SettingsPage } from "@/pages/settings-page";
 import { StaffPage } from "@/pages/staff-page";
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/app" element={<AppShell />}>
               <Route index element={<DashboardPage />} />
               <Route path="bookings" element={<BookingsPage />} />
+              <Route path="reports" element={<ReportsPage />} />
               <Route path="services" element={<ServicesPage />} />
               <Route path="staff" element={<StaffPage />} />
               <Route path="settings" element={<SettingsPage />} />

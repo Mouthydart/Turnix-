@@ -238,3 +238,139 @@ export interface StatsParams {
   date_from?: string;
   date_to?: string;
 }
+
+export interface ReportsParams {
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface RevenueDay {
+  date: string;
+  revenue: Money;
+  completed_bookings: number;
+}
+
+export interface RevenueBreakdown {
+  id: string;
+  name: string;
+  revenue: Money;
+  completed_bookings: number;
+  average_ticket: Money;
+}
+
+export interface RevenueReport {
+  total_revenue: Money;
+  completed_bookings: number;
+  average_ticket: Money;
+  previous_total_revenue: Money;
+  previous_average_ticket: Money;
+  revenue_change_percent: number | null;
+  average_ticket_change_percent: number | null;
+  daily: RevenueDay[];
+  by_service: RevenueBreakdown[];
+  by_staff: RevenueBreakdown[];
+}
+
+export interface OccupancyStaff {
+  id: string;
+  name: string;
+  available_minutes: number;
+  booked_minutes: number;
+  no_show_minutes: number;
+  occupancy_rate: number;
+}
+
+export interface OccupancyDay {
+  date: string;
+  available_minutes: number;
+  booked_minutes: number;
+  no_show_minutes: number;
+  occupancy_rate: number;
+}
+
+export interface OccupancyReport {
+  available_minutes: number;
+  booked_minutes: number;
+  idle_minutes: number;
+  no_show_minutes: number;
+  occupancy_rate: number;
+  by_staff: OccupancyStaff[];
+  daily: OccupancyDay[];
+}
+
+export interface ServiceProfitability {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  buffer_minutes: number;
+  completed_bookings: number;
+  revenue: Money;
+  slot_minutes: number;
+  revenue_per_hour: Money;
+}
+
+export interface ProfitabilityReport {
+  revenue: Money;
+  slot_minutes: number;
+  revenue_per_hour: Money;
+  by_service: ServiceProfitability[];
+}
+
+export interface WaitlistBreakdown {
+  id: string | null;
+  name: string;
+  total: number;
+  waiting: number;
+  offered: number;
+  booked: number;
+  expired: number;
+  cancelled: number;
+  conversion_rate: number;
+  estimated_value: Money;
+}
+
+export interface WaitlistReport {
+  total_entries: number;
+  by_status: Record<string, number>;
+  conversion_rate: number;
+  lost_rate: number;
+  estimated_value: Money;
+  estimated_converted_value: Money;
+  by_service: WaitlistBreakdown[];
+  by_staff: WaitlistBreakdown[];
+}
+
+export interface CustomerSummary {
+  id: string;
+  name: string;
+  visits: number;
+  completed_revenue: Money;
+  last_visit: string | null;
+}
+
+export interface CustomerReport {
+  active_customers: number;
+  new_customers: number;
+  returning_customers: number;
+  repeat_customers: number;
+  inactive_customers_count: number;
+  new_customer_rate: number;
+  repeat_rate: number;
+  retention_rate: number | null;
+  average_visits_per_customer: number;
+  average_days_between_visits: number | null;
+  top_customers: CustomerSummary[];
+  inactive_customers: CustomerSummary[];
+}
+
+export interface BusinessReports {
+  date_from: string;
+  date_to: string;
+  timezone: string;
+  currency: string;
+  revenue: RevenueReport;
+  occupancy: OccupancyReport;
+  profitability: ProfitabilityReport;
+  waitlist: WaitlistReport;
+  customers: CustomerReport;
+}

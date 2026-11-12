@@ -1,4 +1,9 @@
-import type { BookingStatus, Money, Weekday } from "@/lib/api/types";
+import type {
+  BookingStatus,
+  Money,
+  WaitlistStatus,
+  Weekday,
+} from "@/lib/api/types";
 
 export const WEEKDAY_LABELS: Record<Weekday, string> = {
   0: "Lunes",
@@ -16,6 +21,14 @@ export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   cancelled: "Cancelada",
   completed: "Completada",
   no_show: "No asistió",
+};
+
+export const WAITLIST_STATUS_LABELS: Record<WaitlistStatus, string> = {
+  waiting: "En espera",
+  offered: "Ofrecida",
+  booked: "Convertida",
+  expired: "Expirada",
+  cancelled: "Cancelada",
 };
 
 export function toNumber(value: Money | null | undefined): number {
@@ -57,6 +70,19 @@ export function formatDate(iso: string, timeZone = "America/Bogota"): string {
     }).format(new Date(iso));
   } catch {
     return iso;
+  }
+}
+
+export function formatDateOnly(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  try {
+    return new Intl.DateTimeFormat("es-CO", {
+      dateStyle: "medium",
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  } catch {
+    return value;
   }
 }
 
