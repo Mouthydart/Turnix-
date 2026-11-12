@@ -6,6 +6,7 @@ from app.api.v1.routes.bookings import me_router as bookings_me_router
 from app.api.v1.routes.bookings import router as bookings_router
 from app.api.v1.routes.businesses import router as businesses_router
 from app.api.v1.routes.health import router as health_router
+from app.api.v1.routes.reports import router as reports_router
 from app.api.v1.routes.reviews import router as reviews_router
 from app.api.v1.routes.services import router as services_router
 from app.api.v1.routes.staff import router as staff_router
@@ -30,3 +31,4 @@ api_router.include_router(waitlist_me_router, prefix="/waitlist", tags=["waitlis
 api_router.include_router(staff_me_router, prefix="/staff", tags=["staff"])
 api_router.include_router(reviews_router, prefix="/businesses", tags=["reviews"])
 api_router.include_router(stats_router, prefix="/businesses", tags=["stats"])
+api_router.include_router(reports_router, prefix="/businesses", tags=["reports"])
